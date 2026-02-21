@@ -76,18 +76,19 @@ The collector needs the `servicegraph` connector to generate topology data:
 ```yaml
 receivers:
   otlp:
-    protocols:
+    processors:
       grpc:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
 
+processors:
+  batch:
+    timeout: 10s
+
 connectors:
   servicegraph:
-    metrics:
-      - traces_service_graph_request_total
-      - traces_service_graph_request_failed_total
-      - traces_service_graph_request_duration_seconds
+    latency_histogram_buckets: [2ms, 4ms, 6ms, 8ms, 10ms, 50ms, 100ms, 200ms, 400ms, 800ms, 1s]
 
 exporters:
   prometheus:
@@ -97,9 +98,11 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
+      processors: [batch]
       exporters: [servicegraph]
     metrics:
       receivers: [servicegraph]
+      processors: [batch]
       exporters: [prometheus]
 ```
 
