@@ -85,9 +85,9 @@ function App() {
       
       const savedPositions = loadPositions();
       const nodeCount = data.nodes.length;
-      const radius = Math.max(300, nodeCount * 120);
-      const centerX = 500;
-      const centerY = 400;
+      const radius = Math.max(500, nodeCount * 200);
+      const centerX = 600;
+      const centerY = 450;
       
       const nodes = data.nodes.map((n: { id: string }, i: number) => {
         const pos = savedPositions[n.id];
