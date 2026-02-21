@@ -41,42 +41,91 @@ async def set_collector_config(config: CollectorConfig):
 
 def parse_prometheus_metrics(text):
     """Parse Prometheus text format and extract service graph metrics."""
-    nodes = set()
-    edges = []
-    edge_requests = {}
+    edge_data = {}
     
     for line in text.split('\n'):
         line = line.strip()
         if not line or line.startswith('#'):
             continue
         
+        # Parse request_total (for throughput)
         if 'traces_service_graph_request_total{' in line:
             match = re.match(r'traces_service_graph_request_total\{([^}]+)\}\s+([\d.]+)', line)
             if match:
                 labels_str, value = match.groups()
-                labels = {}
-                for kv in labels_str.split(','):
-                    if '=' in kv:
-                        k, v = kv.split('=', 1)
-                        labels[k.strip()] = v.strip().strip('"')
+                labels = dict(kv.split('=', 1) for kv in labels_str.split(',') if '=' in kv)
+                labels = {k: v.strip().strip('"') for k, v in labels.items()}
                 
                 client = labels.get('client')
                 server = labels.get('server')
                 failed = labels.get('failed', 'false')
                 
-                if client and server and failed == 'false':
+                if client and server:
                     edge_key = (client, server)
-                    if edge_key not in edge_requests:
-                        edge_requests[edge_key] = 0
-                    edge_requests[edge_key] += float(value)
+                    if edge_key not in edge_data:
+                        edge_data[edge_key] = {'requests': 0, 'failed': 0, 'latency_sum': 0, 'latency_count': 0}
+                    
+                    if failed == 'false':
+                        edge_data[edge_key]['requests'] += float(value)
+                    else:
+                        edge_data[edge_key]['failed'] += float(value)
+        
+        # Parse latency histogram (client side)
+        if 'traces_service_graph_request_client_seconds_bucket{' in line:
+            match = re.match(r'traces_service_graph_request_client_seconds_bucket\{([^}]+)\}\s+([\d.]+)', line)
+            if match:
+                labels_str, value = match.groups()
+                labels = dict(kv.split('=', 1) for kv in labels_str.split(',') if '=' in kv)
+                labels = {k: v.strip().strip('"') for k, v in labels.items()}
+                
+                client = labels.get('client')
+                server = labels.get('server')
+                le = labels.get('le', '+Inf')
+                
+                if client and server and le == '+Inf':
+                    edge_key = (client, server)
+                    if edge_key not in edge_data:
+                        edge_data[edge_key] = {'requests': 0, 'failed': 0, 'latency_sum': 0, 'latency_count': 0}
+                    edge_data[edge_key]['latency_count'] += float(value)
+        
+        if 'traces_service_graph_request_client_seconds_sum{' in line:
+            match = re.match(r'traces_service_graph_request_client_seconds_sum\{([^}]+)\}\s+([\d.]+)', line)
+            if match:
+                labels_str, value = match.groups()
+                labels = dict(kv.split('=', 1) for kv in labels_str.split(',') if '=' in kv)
+                labels = {k: v.strip().strip('"') for k, v in labels.items()}
+                
+                client = labels.get('client')
+                server = labels.get('server')
+                
+                if client and server:
+                    edge_key = (client, server)
+                    if edge_key not in edge_data:
+                        edge_data[edge_key] = {'requests': 0, 'failed': 0, 'latency_sum': 0, 'latency_count': 0}
+                    edge_data[edge_key]['latency_sum'] += float(value)
     
-    for (client, server), requests in edge_requests.items():
+    nodes = set()
+    edges = []
+    
+    for (client, server), data in edge_data.items():
         nodes.add(client)
         nodes.add(server)
+        
+        requests = data['requests']
+        errors = data['failed']
+        latency_count = data['latency_count']
+        latency_sum = data['latency_sum']
+        
+        avg_latency_ms = (latency_sum / latency_count * 1000) if latency_count > 0 else 0
+        error_rate = errors / (requests + errors) if (requests + errors) > 0 else 0
+        
         edges.append({
             "source": client,
             "target": server,
-            "requests": requests
+            "requests": requests,
+            "latency": round(avg_latency_ms, 2),
+            "errors": errors,
+            "errorRate": round(error_rate, 4)
         })
     
     return nodes, edges
