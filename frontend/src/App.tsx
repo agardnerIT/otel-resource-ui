@@ -8,12 +8,19 @@ interface ServiceNode {
   name?: string;
   x?: number;
   y?: number;
+  vx?: number;
+  vy?: number;
+  fx?: number;
+  fy?: number;
 }
 
 interface ServiceLink {
   source: string | ServiceNode;
   target: string | ServiceNode;
   requests: number;
+  latency?: number;
+  errors?: number;
+  errorRate?: number;
 }
 
 interface GraphData {
@@ -22,6 +29,16 @@ interface GraphData {
 }
 
 const API_URL = 'http://localhost:8000';
+const STORAGE_KEY = 'otel-graph-positions';
+
+function loadPositions(): Record<string, { x: number; y: number }> {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
 
 function App() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,12 +81,27 @@ function App() {
     try {
       const topologyRes = await axios.get(`${API_URL}/api/topology`);
       const data = topologyRes.data || { nodes: [], edges: [] };
+      
+      const savedPositions = loadPositions();
+      const nodes = data.nodes.map((n: { id: string }) => {
+        const pos = savedPositions[n.id];
+        return {
+          id: n.id,
+          name: n.id,
+          x: pos?.x,
+          y: pos?.y,
+        };
+      });
+      
       setGraphData({
-        nodes: data.nodes.map((n: { id: string }) => ({ id: n.id, name: n.id })),
-        links: data.edges.map((e: { source: string; target: string; requests: number }) => ({
+        nodes,
+        links: data.edges.map((e: { source: string; target: string; requests: number; latency?: number; errors?: number; errorRate?: number }) => ({
           source: e.source,
           target: e.target,
-          requests: e.requests
+          requests: e.requests,
+          latency: e.latency,
+          errors: e.errors,
+          errorRate: e.errorRate
         }))
       });
     } catch (err) {
@@ -80,20 +112,59 @@ function App() {
     }
   };
 
-  const nodeCanvasObject = useCallback((node: NodeObject, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const label = (node as ServiceNode).id;
-    const fontSize = 12/globalScale;
-    ctx.font = `${fontSize}px Sans-Serif`;
+  const onNodeDragEnd = useCallback((node: NodeObject) => {
+    const n = node as ServiceNode;
+    if (n.x !== undefined && n.y !== undefined) {
+      const positions = loadPositions();
+      positions[n.id] = { x: n.x, y: n.y };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
+    }
+  }, []);
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+  const nodeCanvasObject = useCallback((node: NodeObject, ctx: CanvasRenderingContext2D, _globalScale: number) => {
+    const n = node as ServiceNode;
+    const label = n.id;
+    const x = n.x || 0;
+    const y = n.y || 0;
+    
+    // Draw larger circle (12px)
     ctx.beginPath();
-    ctx.arc((node as ServiceNode).x || 0, (node as ServiceNode).y || 0, 5, 0, 2 * Math.PI);
+    ctx.arc(x, y, 12, 0, 2 * Math.PI);
+    ctx.fillStyle = '#3b82f6';
     ctx.fill();
-
+    ctx.strokeStyle = '#1d4ed8';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Draw label below node
+    const fontSize = 14;
+    ctx.font = `bold ${fontSize}px Sans-Serif`;
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.textBaseline = 'top';
     ctx.fillStyle = '#1f2937';
-    ctx.fillText(label, (node as ServiceNode).x || 0, ((node as ServiceNode).y || 0) + 8);
+    ctx.fillText(label, x, y + 16);
+  }, []);
+
+  const linkCanvasObject = useCallback((link: ServiceLink, ctx: CanvasRenderingContext2D, _globalScale: number) => {
+    const source = link.source as ServiceNode;
+    const target = link.target as ServiceNode;
+    
+    if (!source.x || !source.y || !target.x || !target.y) return;
+    
+    // Calculate edge color based on error rate
+    let color = '#22c55e'; // green
+    if (link.errorRate !== undefined) {
+      if (link.errorRate > 0.05) color = '#ef4444'; // red
+      else if (link.errorRate > 0.01) color = '#eab308'; // yellow
+    }
+    
+    // Draw edge
+    ctx.beginPath();
+    ctx.moveTo(source.x, source.y);
+    ctx.lineTo(target.x, target.y);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1, Math.min(link.requests / 100, 6));
+    ctx.stroke();
   }, []);
 
   const handleNodeClick = useCallback((node: NodeObject) => {
@@ -144,18 +215,19 @@ function App() {
             graphData={graphData}
             nodeLabel="id"
             nodeCanvasObject={nodeCanvasObject}
+            linkCanvasObject={linkCanvasObject}
             nodePointerAreaPaint={(node, color, ctx) => {
               ctx.fillStyle = color;
-              const size = 8;
               ctx.beginPath();
-              ctx.arc((node as ServiceNode).x || 0, (node as ServiceNode).y || 0, size, 0, 2 * Math.PI);
+              ctx.arc((node as ServiceNode).x || 0, (node as ServiceNode).y || 0, 15, 0, 2 * Math.PI);
               ctx.fill();
             }}
-            linkColor={() => '#94a3b8'}
-            linkWidth={2}
-            linkDirectionalArrowLength={6}
-            linkDirectionalArrowRelPos={1}
+            linkWidth={0}
+            linkDirectionalArrowLength={8}
+            linkDirectionalArrowRelPos={0.95}
             onNodeClick={handleNodeClick}
+            onNodeDragEnd={onNodeDragEnd}
+            enableNodeDrag
             backgroundColor="#f8fafc"
           />
         )}
