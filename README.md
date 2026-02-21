@@ -1,6 +1,6 @@
 # OTel Resource UI
 
-> **Warning**: This is a hobby project, vibe coded, and potentially unstable. Use with caution in production.
+> **⚠️ WARNING**: This is a hobby project, vibe coded, and **NOT recommended for production use**. Things can and will change at any time without notice.
 
 A native OpenTelemetry UI for visualizing Resource information and entity relationships.
 
