@@ -84,13 +84,21 @@ function App() {
       const data = topologyRes.data || { nodes: [], edges: [] };
       
       const savedPositions = loadPositions();
-      const nodes = data.nodes.map((n: { id: string }) => {
+      const nodeCount = data.nodes.length;
+      const radius = Math.max(150, nodeCount * 50);
+      
+      const nodes = data.nodes.map((n: { id: string }, i: number) => {
         const pos = savedPositions[n.id];
+        if (pos) {
+          return { id: n.id, name: n.id, x: pos.x, y: pos.y };
+        }
+        // Default positions in a circle if no saved position
+        const angle = (i / nodeCount) * 2 * Math.PI;
         return {
           id: n.id,
           name: n.id,
-          x: pos?.x,
-          y: pos?.y,
+          x: 400 + radius * Math.cos(angle),
+          y: 300 + radius * Math.sin(angle),
         };
       });
       
