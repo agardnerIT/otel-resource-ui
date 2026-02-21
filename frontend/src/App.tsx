@@ -83,9 +83,6 @@ function App() {
       const topologyRes = await axios.get(`${API_URL}/api/topology`);
       const data = topologyRes.data || { nodes: [], edges: [] };
       
-      // Clear saved positions for fresh layout
-      localStorage.removeItem(STORAGE_KEY);
-      
       const nodeCount = data.nodes.length;
       const radius = Math.max(500, nodeCount * 200);
       const centerX = 600;
@@ -98,8 +95,6 @@ function App() {
           name: n.id,
           x: centerX + radius * Math.cos(angle),
           y: centerY + radius * Math.sin(angle),
-          fx: centerX + radius * Math.cos(angle),
-          fy: centerY + radius * Math.sin(angle),
         };
       });
       
@@ -261,6 +256,8 @@ function App() {
             onNodeDragEnd={onNodeDragEnd}
             enableNodeDrag
             backgroundColor="#f8fafc"
+            d3AlphaDecay={0.01}
+            d3VelocityDecay={0.05}
           />
         )}
 
