@@ -83,24 +83,23 @@ function App() {
       const topologyRes = await axios.get(`${API_URL}/api/topology`);
       const data = topologyRes.data || { nodes: [], edges: [] };
       
-      const savedPositions = loadPositions();
+      // Clear saved positions for fresh layout
+      localStorage.removeItem(STORAGE_KEY);
+      
       const nodeCount = data.nodes.length;
       const radius = Math.max(500, nodeCount * 200);
       const centerX = 600;
       const centerY = 450;
       
       const nodes = data.nodes.map((n: { id: string }, i: number) => {
-        const pos = savedPositions[n.id];
-        if (pos) {
-          return { id: n.id, name: n.id, x: pos.x, y: pos.y };
-        }
-        // Default positions in a circle if no saved position
         const angle = (i / Math.max(1, nodeCount)) * 2 * Math.PI;
         return {
           id: n.id,
           name: n.id,
           x: centerX + radius * Math.cos(angle),
           y: centerY + radius * Math.sin(angle),
+          fx: centerX + radius * Math.cos(angle),
+          fy: centerY + radius * Math.sin(angle),
         };
       });
       
