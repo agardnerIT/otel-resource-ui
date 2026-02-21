@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-COLLECTOR_URL = os.getenv("COLLECTOR_URL", "http://localhost:8889")
+COLLECTOR_URL = os.getenv("COLLECTOR_URL", "http://localhost:8888")
 
 
 class CollectorConfig(BaseModel):
