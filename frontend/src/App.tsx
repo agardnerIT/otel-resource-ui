@@ -49,6 +49,7 @@ function App() {
   const [connected, setConnected] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [hoveredLink, setHoveredLink] = useState<ServiceLink | null>(null);
 
   useEffect(() => {
     fetchCollectorConfig();
@@ -119,6 +120,15 @@ function App() {
       positions[n.id] = { x: n.x, y: n.y };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
     }
+  }, []);
+
+  const formatLatency = (ms: number) => {
+    if (ms >= 1000) return `${(ms / 1000).toFixed(2)}s`;
+    return `${ms.toFixed(1)}ms`;
+  };
+
+  const handleLinkHover = useCallback((link: ServiceLink | null) => {
+    setHoveredLink(link);
   }, []);
 
   const nodeCanvasObject = useCallback((node: NodeObject, ctx: CanvasRenderingContext2D, _globalScale: number) => {
@@ -225,6 +235,19 @@ function App() {
             linkWidth={0}
             linkDirectionalArrowLength={8}
             linkDirectionalArrowRelPos={0.95}
+            linkPointerAreaPaint={(link, color, ctx) => {
+              ctx.fillStyle = color;
+              const source = (link as ServiceLink).source as ServiceNode;
+              const target = (link as ServiceLink).target as ServiceNode;
+              if (source.x && source.y && target.x && target.y) {
+                ctx.beginPath();
+                ctx.moveTo(source.x, source.y);
+                ctx.lineTo(target.x, target.y);
+                ctx.lineWidth = 8;
+                ctx.stroke();
+              }
+            }}
+            onLinkHover={handleLinkHover}
             onNodeClick={handleNodeClick}
             onNodeDragEnd={onNodeDragEnd}
             enableNodeDrag
@@ -250,6 +273,48 @@ function App() {
                   l.source === selectedNode || l.target === selectedNode
                 ).length}
               </p>
+            </div>
+          </div>
+        )}
+
+        {hoveredLink && (
+          <div 
+            className="absolute bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-50 pointer-events-none"
+            style={{ 
+              left: '50%', 
+              top: '50%', 
+              transform: 'translate(-50%, -50%)',
+              minWidth: '180px'
+            }}
+          >
+            <div className="text-sm font-medium text-gray-900 mb-2">
+              {typeof hoveredLink.source === 'object' ? hoveredLink.source.id : hoveredLink.source} → {typeof hoveredLink.target === 'object' ? hoveredLink.target.id : hoveredLink.target}
+            </div>
+            <div className="space-y-1 text-xs text-gray-600">
+              <div className="flex justify-between">
+                <span>Requests:</span>
+                <span className="font-medium">{hoveredLink.requests.toFixed(0)}</span>
+              </div>
+              {hoveredLink.latency !== undefined && (
+                <div className="flex justify-between">
+                  <span>Latency:</span>
+                  <span className="font-medium">{formatLatency(hoveredLink.latency)}</span>
+                </div>
+              )}
+              {hoveredLink.errors !== undefined && hoveredLink.errors > 0 && (
+                <div className="flex justify-between">
+                  <span>Errors:</span>
+                  <span className="font-medium text-red-600">{hoveredLink.errors.toFixed(0)}</span>
+                </div>
+              )}
+              {hoveredLink.errorRate !== undefined && hoveredLink.errorRate > 0 && (
+                <div className="flex justify-between">
+                  <span>Error Rate:</span>
+                  <span className={`font-medium ${hoveredLink.errorRate > 0.05 ? 'text-red-600' : hoveredLink.errorRate > 0.01 ? 'text-yellow-600' : 'text-green-600'}`}>
+                    {(hoveredLink.errorRate * 100).toFixed(1)}%
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}
