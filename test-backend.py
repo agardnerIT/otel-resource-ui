@@ -26,8 +26,8 @@ print("Backend: receiving from frontend, calling payment...")
 
 i = 0
 while True:
-    with tracer.start_as_current_span("GET /api", kind=SpanKind.SERVER) as span:
-        span.set_attribute("http.method", "GET")
+    # with tracer.start_as_current_span("GET /api", kind=SpanKind.SERVER) as span:
+    #     span.set_attribute("http.method", "GET")
     
     with tracer.start_as_current_span("POST /payment", kind=SpanKind.CLIENT) as span:
         span.set_attribute("http.method", "POST")
