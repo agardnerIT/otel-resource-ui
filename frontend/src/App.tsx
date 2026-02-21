@@ -91,8 +91,6 @@ function App() {
           name: n.id,
           x: pos?.x,
           y: pos?.y,
-          fx: pos?.x ?? null,
-          fy: pos?.y ?? null,
         };
       });
       
@@ -254,19 +252,6 @@ function App() {
             onNodeDragEnd={onNodeDragEnd}
             enableNodeDrag
             backgroundColor="#f8fafc"
-            cooldownTicks={100}
-            onEngineStop={() => {
-              if (graphRef.current) {
-                const nodes = graphRef.current.graphData().nodes;
-                nodes.forEach((n: ServiceNode) => {
-                  if (n.x !== undefined && n.y !== undefined) {
-                    const positions = loadPositions();
-                    positions[n.id] = { x: n.x, y: n.y };
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
-                  }
-                });
-              }
-            }}
           />
         )}
 
