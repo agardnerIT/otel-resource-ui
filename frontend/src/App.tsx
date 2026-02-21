@@ -85,7 +85,9 @@ function App() {
       
       const savedPositions = loadPositions();
       const nodeCount = data.nodes.length;
-      const radius = Math.max(200, nodeCount * 80);
+      const radius = Math.max(300, nodeCount * 120);
+      const centerX = 500;
+      const centerY = 400;
       
       const nodes = data.nodes.map((n: { id: string }, i: number) => {
         const pos = savedPositions[n.id];
@@ -93,12 +95,12 @@ function App() {
           return { id: n.id, name: n.id, x: pos.x, y: pos.y };
         }
         // Default positions in a circle if no saved position
-        const angle = (i / nodeCount) * 2 * Math.PI;
+        const angle = (i / Math.max(1, nodeCount)) * 2 * Math.PI;
         return {
           id: n.id,
           name: n.id,
-          x: 400 + radius * Math.cos(angle),
-          y: 300 + radius * Math.sin(angle),
+          x: centerX + radius * Math.cos(angle),
+          y: centerY + radius * Math.sin(angle),
         };
       });
       
